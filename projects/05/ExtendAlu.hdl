@@ -1,0 +1,42 @@
+// This file is part of nand2tetris, as taught in The Hebrew University, and
+// was written by Aviv Yaish. It is an extension to the specifications given
+// [here](https://www.nand2tetris.org) (Shimon Schocken and Noam Nisan, 2017),
+// as allowed by the Creative Common Attribution-NonCommercial-ShareAlike 3.0
+// Unported [License](https://creativecommons.org/licenses/by-nc-sa/3.0/).
+
+
+// The ExtendAlu chip is an extension of the standard ALU which also supports
+// shift operations.
+// The inputs of the extended ALU are instruction[9], x[16], y[16].
+// The "ng" and "zr" output pins behave the same as in the regular ALU.
+// The "out" output is defined as follows:
+// If instruction[8]=1 and instruction[7]=1 the output is identical to the 
+// regular ALU, where:
+// instruction[5]=zx, instruction[4]=nx, ..., instruction[0]=no
+// Else, if instruction[8]=0 and instruction[7]=1, the output is a shift:
+// - If instruction[4] == 0, the input "y" will be shifted, otherwise "x".
+// - If instruction[5] == 0, the shift will be a right-shift, otherwise left.
+// - All other inputs are undefined.
+
+CHIP ExtendAlu {
+     IN x[16], y[16], instruction[9];
+     OUT out[16], zr, ng;
+     
+    PARTS:
+    ALU (x=x, y=y, zx=instruction[5], nx=instruction[4], zy=instruction[3], ny=instruction[2], f=instruction[1], no=instruction[0], out=regALUout, zr=zrALU, ng=ngALU);
+    Mux16 (a=y, b=x, sel=instruction[4], out=toShift);
+    ShiftLeft(in=toShift, out=leftShifted);
+    ShiftRight(in=toShift, out=rightShifted);
+    Mux16 (a=rightShifted, b=leftShifted, sel=instruction[5], out=shiftedALUout);
+
+    //And (a=instruction[8], b=instruction[7], out=regMode);
+    //Not (in=instruction[8], out=notIns8);
+    //And (a=notIns8, b=instruction[7], out=shiftMode);
+    Mux16 (a=shiftedALUout, b=regALUout, sel=instruction[8], out=ALUout);
+    Mux16 (a=false, b=ALUout, sel=instruction[7], out[0..7]=outVal1, out[8..15]=outVal2, out=out, out[15]=ng);
+
+    Or8Way (in=outVal1, out=first);
+    Or8Way (in=outVal2, out=last);
+    Or (a=first, b=last, out=notZr);
+    Not (in=notZr, out=zr);
+}
